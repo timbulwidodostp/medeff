@@ -1,0 +1,612 @@
+/*
+	mediate.dlg
+
+*!  VERSION 1.0.9  20mar2023
+
+*/
+
+VERSION 18.0
+
+INCLUDE _std_large
+DEFINE _dlght 500
+INCLUDE header
+HELP hlp1, view("help mediate")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	script se_createAsNoML
+	script se_setDefaultRobust
+	setscale_hadj resource MEDIATE_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program se_setFinalInitState
+	se.ck_nose.show
+END
+
+DIALOG model, tabtitle(resource LBL_TAB_MODEL)				///
+	label(resource MEDIATE_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_oeqn			_lft	_top	_iwd	_ht10h,	///
+	label(resource LBL_OUTCOME_EQUATION)
+  TEXT tx_omodel			_ilft	_ss	_vnwd	.,	///
+	label(resource LBL_MODEL)
+  COMBOBOX cb_omodel			@	_ss	@	.,	///
+	dropdownlist							///
+	contents(omodel_list)						///
+	values(omodel_values)						///
+	onselchange(program omodel_list_sel)				///
+	label(resource TEFFECTS_MODEL_TX_OMODEL)
+  TEXT tx_ovar				_ilft	_ms	_cwd3_01 .,	///
+	label(resource LBL_DEPVAR, colon)
+  DEFINE holdovn @y
+  VARNAME vn_ovar			@	_ss	_vnwd	.,	///
+	numeric								///
+	label(resource LBL_DEPVAR)
+  TEXT tx_ovars				_vnsep	holdovn	_lw145	.,	///
+	label(resource LBL_INDEPENDENT_VARIABLES, colon)
+  VARLIST vl_ovars			@	_ss	@	.,	///
+	numeric	fv							///
+	label(resource LBL_INDEPENDENT_VARIABLES)
+  CHECKBOX ck_ovarno			@	_ms	@	.,	///
+	option(noconstant)						///
+	label(resource LBL_SUPPRESS_CONSTANT_OUTCOME)
+
+  GROUPBOX gp_meqn			_lft	_xls	_iwd	_ht11,	///
+	label(resource LBL_MEDIATOR_EQUATION)
+  TEXT tx_mmodel			_ilft	_ss	_vnwd	.,	///
+	label(resource LBL_MODEL)
+  COMBOBOX cb_mmodel			@	_ss	@	.,	///
+	dropdownlist							///
+	contents(mmodel_list)						///
+	values(mmodel_values)						
+  TEXT tx_mvar				_ilft	_ls	_vnwd	.,	///
+	label(resource LBL_DEPVAR)
+  TEXT tx_mvars				_vnsep	@	_vlwd	.,	///
+	label(resource LBL_INDEPENDENT_VARIABLES, colon)
+  VARNAME vn_mvar			_ilft	_ss	_vnwd	.,	///
+	numeric								///
+	label(resource LBL_DEPVAR)
+  VARLIST vl_mvars			_vnsep	@	_lw145	.,	///
+	numeric	fv							///
+	label(resource LBL_INDEPENDENT_VARIABLES)
+  CHECKBOX ck_mvarno			@	_ms	@	.,	///
+	option(noconstant)						///
+	label(resource LBL_SUPPRESS_CONST_TERM_MEDIATOR_MODEL)
+  GROUPBOX gp_teqn			_lft	_xls	_iwd	_ht4,	///
+	label(resource LBL_TREATMENT_EQUATION)
+  TEXT tx_tvar				_ilft	_ss	_vnwd	.,	///
+	label(resource LBL_VARIABLE)
+  VARNAME vn_tvar			_ilft	_ss	_vnwd	.,	///
+	numeric								///
+	label(resource LBL_VARIABLE)
+  CHECKBOX ck_cts			_vnsep	-20	300	.,	///
+	onclickon(script main_continuous_on)				///
+	onclickoff(script main_continuous_off)				///
+	label(resource LBL_CONT_TREATMENT)
+  DEFINE holdx @x
+  HLINK hl_numlist			+210	@	65	.,	///
+	onpush(view help numlist##|_new)				///
+	label(resource LBL_PAREN_EXAMPLES_PAREN) 
+  EDIT ed_pomval			holdx	_ss	200	.,	///
+	option(continuous)						///
+	label(resource LBL_POMVAL_ESTIMATES)
+  TEXT tx_numlist			+210	@	100	.,	///
+	label(resource LBL_VALS_TO_ESTIMATE_POM) 
+
+  GROUPBOX gb_opts			_lft	+45	_iwd	_ht5h,	///
+	label(resource LBL_OPTIONS)
+  CHECKBOX ck_nointer			_indent	_ms	350	.,	///
+	option(nointeraction)						///
+	label(resource LBL_MEDIATOR_NOINTER)
+  EDIT ed_ctrl				@	_ms	_vnwd	.,	///
+	option(control)							///
+	label(resource LBL_LVL_TREATMENT_VAR_CNTRL)			///
+	tooltip(resource LBL_SPECIFY_NUM_LVL_OR_LBL)
+  TEXT tx_ctrl				_vnsep	@	300	.,	///
+	label(resource LBL_LVL_TREATMENT_VAR_CNTRL)
+END
+
+LIST omodel_list
+BEGIN
+	resource LBL_LINEAR
+	resource LBL_EXPONENTIAL_MEAN
+	resource LBL_LOGISTIC
+	resource LBL_PROBIT
+	resource LBL_POISSON
+END
+
+LIST omodel_values
+BEGIN
+	linear
+	expmean
+	logit
+	probit 
+	poisson
+END
+
+LIST mmodel_list
+BEGIN
+	resource LBL_LINEAR
+	resource LBL_EXPONENTIAL_MEAN
+	resource LBL_LOGISTIC
+	resource LBL_PROBIT
+	resource LBL_POISSON
+END
+
+LIST mmodel_values
+BEGIN
+	linear
+	expmean
+	logit
+	probit 
+	poisson
+END
+
+LIST mmodel_list2
+BEGIN
+	resource LBL_LOGISTIC
+	resource LBL_PROBIT
+	resource LBL_POISSON
+END
+
+LIST mmodel_values2
+BEGIN
+	logit
+	probit 
+	poisson
+END
+
+SCRIPT main_continuous_on 
+BEGIN
+	model.ed_pomval.enable 
+	model.tx_numlist.enable 
+	model.hl_numlist.enable 
+	model.ed_ctrl.disable 
+	model.tx_ctrl.disable 
+END
+
+SCRIPT main_continuous_off
+BEGIN
+	model.ed_pomval.disable 
+	model.tx_numlist.disable 
+	model.hl_numlist.disable 
+	model.ed_ctrl.enable 
+	model.tx_ctrl.enable 
+END 
+
+PROGRAM omodel_list_sel
+BEGIN
+	if model.cb_omodel.iseq("logit") {
+		call model.cb_mmodel.setcontentslist mmodel_list2
+		call model.cb_mmodel.setvalueslist mmodel_values2
+		call model.cb_mmodel.repopulate
+		call model.cb_mmodel.setvalue "logit"
+	}
+	else {
+		call model.cb_mmodel.setcontentslist mmodel_list
+		call model.cb_mmodel.setvalueslist mmodel_values
+		call model.cb_mmodel.repopulate
+		call model.cb_mmodel.setvalue "linear"
+	}
+END 
+
+INCLUDE byifin
+INCLUDE weights_fpi
+
+DIALOG stat, tabtitle(resource TEFFECTS_TAB_STAT)
+BEGIN
+  GROUPBOX gb_stats_pearl		_lft	_top	_iwd	_ht12,	///
+	label(resource MEDIATE_STAT_CK_STATS_PEARL)
+  CHECKBOX ck_nie			_indent	_ss	_inwd	.,	///
+	option(nie)							///
+	onclickon(program stat_stats_check)				///
+	onclickoff(program stat_stats_check)				///
+	label(resource LBL_NATURAL_INDIRECT_EFFECT)
+  CHECKBOX ck_nde			@	_ms	@	.,	///
+	option(nde)							///
+	onclickon(program stat_stats_check)				///
+	onclickoff(program stat_stats_check)				///
+	label(resource LBL_NATURAL_DIRECT_EFFECT)
+  CHECKBOX ck_mte			@	_ms	@	.,	///
+	option(te)							///
+	onclickon(program stat_stats_check)				///
+	onclickoff(program stat_stats_check)				///
+	label(resource LBL_MARGINAL_TOTAL__EFFECT)
+  CHECKBOX ck_pnie			@	_ms	@	.,	///
+	option(pnie)							///
+	onclickon(program stat_stats_check)				///
+	onclickoff(program stat_stats_check)				///
+	label(resource LBL_PURE_NATURAL_INDIRECT_EFFECT)
+  CHECKBOX ck_tnde			@	_ms	@	.,	///
+	option(tnde)							///
+	onclickon(program stat_stats_check)				///
+	onclickoff(program stat_stats_check)				///
+	label(resource LBL_TOTAL_NATURAL_DIRECT_EFFECT)
+
+  GROUPBOX gb_stats_ate			_lft	_xls	_iwd	_ht12,	///
+	label(resource MEDIATE_STAT_CK_STATS_ATE)
+  CHECKBOX ck_aite			_indent _ss	_inwd	.,	///
+	option(aite)							///
+	onclickon(program stat_stats_check)				///
+	onclickoff(program stat_stats_check)				///
+	label(resource LBL_AVG_INDIRECT_TE)
+  CHECKBOX ck_adte			@	_ms	@	.,	///
+	option(adte)							///
+	onclickon(program stat_stats_check)				///
+	onclickoff(program stat_stats_check)				///
+	label(resource LBL_AVG_DIRECT_TE)
+  CHECKBOX ck_ate			@	_ms	@	.,	///
+	option(ate)							///
+	onclickon(program stat_stats_check)				///
+	onclickoff(program stat_stats_check)				///
+	label(resource LBL_TOT_AVG_TE)
+  CHECKBOX ck_aitec			@	_ms	@	.,	///
+	option(aitec)							///
+	onclickon(program stat_stats_check)				///
+	onclickoff(program stat_stats_check)				///
+	label(resource MEDIATE_STAT_CK_AITEC)
+  CHECKBOX ck_adtet			@	_ms	@	.,	///
+	option(adtet)							///
+	onclickon(program stat_stats_check)				///
+	onclickoff(program stat_stats_check)				///
+	label(resource MEDIATE_STAT_CK_ADTET)
+
+  CHECKBOX ck_pomeans			_lft	_xls	_iwd	.,	///
+	option(pomeans)							///
+	label(resource LBL_POTENTIAL_OUTCOME_MEANS)
+  CHECKBOX ck_all			_lft 	_ms	_iwd	.,	///
+	onclickon("program stat_stats_check")				///
+	onclickoff("program stat_stats_check")				///
+	option(all)							///
+	label(resource LBL_ESTIMATE_EFFECTS_POTENTIAL_OUTCOME_MEANS)
+END
+
+SCRIPT stat_perl_disable
+BEGIN
+	stat.ck_nie.disable
+	stat.ck_nde.disable
+	stat.ck_mte.disable
+	stat.ck_pnie.disable
+	stat.ck_tnde.disable
+END
+
+SCRIPT stat_perl_enable
+BEGIN
+	stat.ck_nie.enable
+	stat.ck_nde.enable
+	stat.ck_mte.enable
+	stat.ck_pnie.enable
+	stat.ck_tnde.enable
+END
+
+SCRIPT stat_ate_disable
+BEGIN
+	stat.ck_aite.disable
+	stat.ck_adte.disable
+	stat.ck_ate.disable
+	stat.ck_aitec.disable
+	stat.ck_adtet.disable
+END
+
+SCRIPT stat_ate_enable
+BEGIN
+	stat.ck_aite.enable
+	stat.ck_adte.enable
+	stat.ck_ate.enable
+	stat.ck_aitec.enable
+	stat.ck_adtet.enable
+END
+
+PROGRAM stat_stats_check
+BEGIN
+	call rpt.ck_ateterms.enable
+	if stat.ck_all {
+		call stat.ck_pomeans.disable
+		call script stat_ate_disable
+		call script stat_perl_disable
+	}
+	else {
+		call stat.ck_pomeans.enable
+		if stat.ck_nie | stat.ck_nde | stat.ck_mte		///
+			| stat.ck_pnie | stat.ck_tnde {
+			call rpt.ck_ateterms.disable
+			call script stat_ate_disable
+		}
+		else {
+			call script stat_ate_enable
+		}
+		if stat.ck_aite | stat.ck_adte | stat.ck_ate		///
+			| stat.ck_aitec | stat.ck_adtet {
+			call script stat_perl_disable
+			call rpt.ck_ateterms.disable
+		}
+		else {
+			call script stat_perl_enable
+		}
+	}
+END
+
+PROGRAM stat_output
+BEGIN
+	option stat.ck_aite
+	option stat.ck_adte
+	option stat.ck_ate
+	option stat.ck_aitec
+	option stat.ck_adtet
+	option stat.ck_nie
+	option stat.ck_nde 
+	option stat.ck_mte
+	option stat.ck_pnie 
+	option stat.ck_tnde 
+	option stat.ck_pomeans 
+	option stat.ck_all
+END 
+
+SCRIPT rpt_POSTINIT
+BEGIN
+	create STRING rpt_bu_fmtcoefResults
+	program rpt_bu_fmtcoef_ckResults
+	create STRING rpt_bu_facvarsResults
+	program rpt_bu_facvars_ckResults
+END
+
+INCLUDE se 
+
+DIALOG rpt, tabtitle(resource LBL_TAB_REPORTING)
+BEGIN
+	DEFINE _x _lft
+	DEFINE _cx _spr
+	DEFINE _y _top
+	INCLUDE _sp_level
+	
+  CHECKBOX ck_ateterms			_lft	_ls	_iwd	.,	///
+	option(ateterms)						///
+	label("Use ATE terminology to label effects")
+  CHECKBOX ck_aeq			@	_ms	@	.,	///
+	option(aequations)						///
+	label(resource TEFFECTS_RPT_CK_AEQ)
+  CHECKBOX ck_nolegend			@	_ms	@	.,	///
+	option(nolegend)						///
+	label(resource LBL_SUP_TABLE_LEGEND)
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  DEFINE _cx _iwd
+  INCLUDE _report_columns
+
+  DEFINE _x _lft
+  DEFINE _y _ls
+  INCLUDE _bu_factor_vars_reporting
+
+  DEFINE _x _lft2
+  DEFINE _y @
+  INCLUDE _bu_coef_table_reporting
+END
+
+INCLUDE fmt_coef_table_reporting_pr
+INCLUDE factor_vars_reporting_pr
+
+
+PROGRAM rpt_output
+BEGIN
+	optionarg /hidedefault rpt.sp_level
+	option rpt.ck_ateterms
+	option rpt.ck_aeq
+	option rpt.ck_nolegend
+	INCLUDE _report_columns_pr
+	put " " rpt_bu_facvarsResults
+	put " " rpt_bu_fmtcoefResults
+END
+
+
+DIALOG opt, tabtitle(resource LBL_TAB_OPTIMIZATION)
+BEGIN
+  SPINNER sp_iter_i			_lft	_top	_spwd	.,	///
+	label(resource LBL_MAXIMUM_ITERATIONS)				///
+	option(conv_maxiter)						///
+	min(0)								///
+	max(16000)							///
+	default(300)
+  TEXT tx_iter_i			_spsep	@	_spr2b	.,	///
+	label(resource LBL_MAXIMUM_ITERATIONS)
+
+  GROUPBOX gb_tol			_lft	_ls	_ibwd	_ht2,	///
+	label(resource LBL_TOLERANCE)
+  EDIT ed_ptol				_indent	_ss	_en7wd	.,	///
+	option(conv_ptol)						///
+	default(1e-6)							///
+	label(resource LBL_PARAMETER)
+  DEFINE holdy @y
+  TEXT tx_ptol				_en7sep	@	_cwd3_3	.,	///
+	label(resource LBL_PARAMETER)
+  EDIT ed_vtol				_ilft2	holdy	_en7wd	.,	///
+	option(conv_vtol)						///
+	default(1e-7)							///
+	label(resource LBL_GRADIENT)
+  TEXT tx_vtol				_en7sep	@	_cwd3_3	.,	///
+	label(resource LBL_GRADIENT)
+
+  TEXT tx_tracel			_lft	_xls	@	.,	///
+	label(resource LBL_TRACE_LEVEL, colon)
+  COMBOBOX cb_tracel			@	_ss	180	.,	///
+	dropdownlist							///
+	option(tracelevel)						///
+	contents(tracelevel_list)					///
+	values(tracelevel_val_list)
+  CHECKBOX ck_logs			@	_ls	_iwd	.,	///
+	option(nolog)							///
+	label(resource LBL_SUPPRESS_ITERATION_LOG)
+END
+
+PROGRAM opt_output
+BEGIN
+	optionarg /hidedefault opt.sp_iter_i
+	optionarg /hidedefault opt.ed_ptol
+	optionarg /hidedefault opt.ed_vtol
+	optionarg /hidedefault opt.cb_tracel
+	option opt.ck_logs
+END
+
+LIST tracelevel_list
+BEGIN
+	resource LBL_NOTHING
+	resource LBL_FUNCTION_VALUE
+	resource LBL_PREVIOUS_CONVERGENCE_VALUES
+	resource LBL_PREVIOUS_STEPPING_INFORMATION
+	resource LBL_PREVIOUS_PARAMETER_VALUES
+	resource LBL_PREVIOUS_GRADIENT_VECTOR
+END
+
+LIST tracelevel_val_list
+BEGIN
+	""
+	"value"
+	"tolerance"
+	"step"
+	"params"
+	"gradient"
+END
+
+
+DIALOG adv, tabtitle(resource LBL_ADVANCED)
+BEGIN
+  CHECKBOX ck_force			_lft	_top	.	.,	///
+	option(force)							///
+	label(resource MEDIATE_ADVANCED_CK_FORCE)
+END
+
+PROGRAM adv_output
+BEGIN
+	option adv.ck_force
+END
+
+PROGRAM model_ovar_output
+BEGIN
+	require model.vn_ovar
+	varlist model.vn_ovar [model.vl_ovars]
+END
+
+PROGRAM model_ovaroption_output
+BEGIN
+	if model.cb_omodel.iseq("linear") {
+		if model.ck_ovarno {
+			put ", noconstant"
+		}
+	}
+	if model.cb_omodel.iseq("expmean") {
+		put ", expmean"
+		if model.ck_ovarno {
+			put " noconstant"
+		}
+	}
+	if model.cb_omodel.iseq("logit") {
+		put ", logit"
+		if model.ck_ovarno {
+			put " noconstant"
+		}
+	}
+	if model.cb_omodel.iseq("probit") {
+		put ", probit"
+		if model.ck_ovarno {
+			put " noconstant"
+		}
+	}
+	if model.cb_omodel.iseq("poisson") {
+		put ", poisson"
+		if model.ck_ovarno {
+			put " noconstant"
+		}
+	}
+END 
+
+PROGRAM model_mediator_output
+BEGIN
+	require model.vn_mvar
+	varlist model.vn_mvar [model.vl_mvars]
+
+	if model.cb_mmodel.iseq("linear") {
+		if model.ck_mvarno {
+			put ", noconstant"
+		}
+	}
+	if model.cb_mmodel.iseq("expmean") {
+		put ", expmean"
+		if model.ck_mvarno {
+			put " noconstant"
+		}
+	}
+	if model.cb_mmodel.iseq("logit") {
+		put ", logit"
+		if model.ck_mvarno {
+			put " noconstant"
+		}
+	}
+	if model.cb_mmodel.iseq("probit") {
+		put ", probit"
+		if model.ck_mvarno {
+			put " noconstant"
+		}
+	}
+	if model.cb_mmodel.iseq("poisson") {
+		put ", poisson"
+		if model.ck_mvarno {
+			put " noconstant"
+		}
+	}
+END 
+
+PROGRAM model_tvar_output
+BEGIN
+	require model.vn_tvar
+	varlist model.vn_tvar
+END 
+
+PROGRAM model_tvaroption_output
+BEGIN
+	if model.ck_cts {
+		put ","
+		require model.ed_pomval 
+		optionarg model.ed_pomval
+	}
+END 
+
+PROGRAM model_opt_output
+BEGIN
+	option model.ck_nointer
+	optionarg model.ed_ctrl
+END
+
+PROGRAM command
+BEGIN
+	put /program by_output " "
+	put "mediate "
+
+	put " ("
+	put /program model_ovar_output
+	put /program model_ovaroption_output
+	put ") "
+
+	put " ("
+	put /program model_mediator_output
+	put ") "
+
+	put " ("
+	put /program model_tvar_output
+	put /program model_tvaroption_output
+	put ")"
+
+	put " " /program ifin_output
+	put " " /program weights_output
+	beginoptions
+		put /program model_opt_output
+		put /program " " stat_output
+		put /program " " se_output
+		put /program " " rpt_output
+		put /program " " opt_output
+		put /program " " adv_output
+	endoptions
+END
+

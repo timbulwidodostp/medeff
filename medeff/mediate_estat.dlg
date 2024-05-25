@@ -1,0 +1,626 @@
+/*
+	mediate_estat.dlg
+
+*!  VERSION 1.0.6  21mar2023
+
+*/
+
+VERSION 18.0
+
+INCLUDE _std_large
+DEFINE _dlght 440
+INCLUDE header
+
+HELP hlp1, view("help mediate postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	create STRING prop_bu_fmtcoefResults
+	create STRING prop_bu_facvarsResults
+	create STRING cde_bu_fmtcoefResults 
+	create STRING cde_bu_facvarsResults
+	create STRING or_bu_fmtcoefResults 
+	create STRING or_bu_facvarsResults
+	create STRING rr_bu_fmtcoefResults 
+	create STRING rr_bu_facvarsResults
+	create STRING irr_bu_fmtcoefResults 
+	create STRING irr_bu_facvarsResults
+        create STRING effectplot_bu_plotResults
+
+	create STRING estimator
+	estimator.setstring e(estimator)
+
+	create BOOLEAN has_FactorVars
+	has_FactorVars.settrue
+
+	create DOUBLE has_PearlTerm 
+	has_PearlTerm.setvalue e(npearl)
+
+	create DOUBLE has_ATE 
+	has_ATE.setvalue e(ate)
+	
+	create DOUBLE has_ADTET 
+	has_ADTET.setvalue e(adtet)
+	
+	create DOUBLE has_AITEC 
+	has_AITEC.setvalue e(aitec) 
+	
+	create DOUBLE has_ADTE 
+	has_ADTE.setvalue e(adte) 
+	
+	create DOUBLE has_AITE 
+	has_AITE.setvalue e(aite) 
+	
+	create DOUBLE has_NIE 
+	has_NIE.setvalue e(nie) 
+	
+	create DOUBLE has_NDE
+	has_NDE.setvalue e(nde)
+	
+	create DOUBLE has_PNIE 
+	has_PNIE.setvalue e(pnie)
+	
+	create DOUBLE has_TNDE 
+	has_TNDE.setvalue e(tnde)
+	
+	create DOUBLE has_MTE 
+	has_MTE.setvalue e(te)
+
+	create STRING cmdstring 
+	cmdstring.setvalue e(cmdline)
+	program main_pearl_onoff
+
+	program sum_bu_facvars_ckResults
+	program vce_bu_facvars_ckResults
+	program prop_bu_facvars_ckResults
+	program prop_bu_fmtcoef_ckResults
+	program cde_bu_facvars_ckResults
+	program cde_bu_fmtcoef_ckResults
+
+	program mvalue_count
+
+	setscale_hadj resource MEDIATE_ESTAT_DLG_HSCALE
+END
+
+SCRIPT POSTINIT
+BEGIN
+	program show_subcmds
+	program parseMessage
+	program prop_bu_facvars_ckResults
+	program prop_bu_fmtcoef_ckResults
+	program cde_bu_facvars_ckResults
+	program cde_bu_fmtcoef_ckResults
+END
+
+PROGRAM show_subcmds
+BEGIN
+	call create STRING e_properties
+	call e_properties.setvalue e(properties)
+	call create STRING e_omodel
+	call e_omodel.setvalue e(omodel)
+	call create DOUBLE e_propmed
+	call e_propmed.setvalue e(propmed)
+	call create DOUBLE e_plots
+	call e_plots.setvalue e(plots)
+
+	call main.lb_subcmd.clearlist
+	call script main_hide_all
+	
+	if e_propmed.isneq(0) {
+		call main_subcommand_contents.ArrpushR			///
+			resource LBL_PROPORTION_MEDIATED 
+		call main_subcommand_values.Arrpush "proportion"
+	}
+	call main_subcommand_contents.ArrpushR 				///
+		resource LBL_CONTROLLED_DIRECT_EFFECT_CDE
+	call main_subcommand_values.Arrpush "cde"
+	if e_omodel.iseq("logit") | e_omodel.iseq("probit") {
+		call main_subcommand_contents.ArrpushR			///
+			resource MEDIATE_ESTAT_TE_OR
+		call main_subcommand_values.Arrpush "or"
+			call main_subcommand_contents.ArrpushR		///
+			resource MEDIATE_ESTAT_TE_RR
+		call main_subcommand_values.Arrpush "rr"
+	}
+	if e_omodel.iseq("poisson") | e_omodel.iseq("probit") |		///
+		e_omodel.iseq("expmean") {
+		call main_subcommand_contents.ArrpushR			///
+			resource MEDIATE_ESTAT_TE_IRR
+		call main_subcommand_values.Arrpush "irr"
+	}
+	if e_plots.isneq(0) {
+		call main_subcommand_contents.ArrpushR			///
+			resource LBL_TE_PLOT_EFFECTPLOT
+		call main_subcommand_values.Arrpush "effectsplot"
+	}
+	call main_subcommand_contents.ArrpushR				///
+		resource dlg LBL_SUMMARIZE_ESTIMATION_SAMPLE
+	call main_subcommand_values.Arrpush "summarize"
+	if e_properties.contains("V") {
+		call main_subcommand_contents.ArrpushR			///
+			resource dlg LBL_COVARIANCE_MATRIX_ESTIMATES
+		call main_subcommand_values.Arrpush "vce"
+	}
+
+	call main.lb_subcmd.repopulate
+END
+
+PROGRAM parseMessage
+BEGIN
+
+	if __MESSAGE.contains("-proportion-") {
+		call main.lb_subcmd.setvalue "proportion"
+	}
+	if __MESSAGE.contains("-or-") {
+		call main.lb_subcmd.setvalue "or"
+	}
+	if __MESSAGE.contains("-rr-") {
+		call main.lb_subcmd.setvalue "rr"
+	}
+	if __MESSAGE.contains("-irr-") {
+		call main.lb_subcmd.setvalue "irr"
+	}
+	if __MESSAGE.contains("-cde-") {
+		call main.lb_subcmd.setvalue "cde"
+	}	
+	if __MESSAGE.contains("-effectsplot-") {
+		call main.lb_subcmd.setvalue "effectsplot"
+	}
+	if __MESSAGE.contains("-summarize-") {
+		call main.lb_subcmd.setvalue "summarize"
+	}
+	if __MESSAGE.contains("-vce-") {
+		call main.lb_subcmd.setvalue "vce"
+	}
+END
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN)				///
+	label(resource MEDIATE_ESTAT_DLG_TITLE)	
+BEGIN
+  TEXT tx_subcmd			_lft	_top	_iwd	.,	///
+	label(resource LBL_REPORTS_STATISTICS_SUBCOMMAND)
+  LISTBOX lb_subcmd			@	_ss	@	70,	///
+	contents(main_subcommand_contents)				///
+	values(main_subcommand_values)					///
+	onselchange(program main_subcommand_changed)
+
+  DEFINE holdy 110
+  
+  //-proportion- option 
+  INCLUDE estat_proportion 
+
+  // -cde- option
+  INCLUDE estat_cde 
+
+  // -or- options
+  COMBOBOX sp_or_level			_lft	holdy	_spwd	.,	///
+	dropdown							///
+	default(c(level))						///
+	contents(levels)						///
+	option(level)							///
+	label(resource LBL_TX_LEVEL)
+  TEXT tx_or_level			_spsep	@	100	.,	///
+	label(resource LBL_TX_LEVEL)
+
+  CHECKBOX ck_or_nolegend		_lft	_ls	_iwd	.,	///
+	option(nolegend)						///
+	label(resource LBL_SUP_TABLE_LEGEND)
+
+  RADIO rb_or_report_cols_dflt		_lft	_ls	_iwd	.,first	///
+	label(resource _REPORT_COLUMNS_RB_REPORT_COL_DFLT)
+  RADIO rb_or_report_cols_noci		@	_ss	@	.,	///
+	option(noci)							///
+	label(resource LBL_SUPPRESS_CONFIDENCE_INTERVALS)
+  RADIO rb_or_report_cols_nopv		@	_ss	@	.,last	///
+	option(nopvalues)						///
+	label(resource _REPORT_COLUMNS_RB_REPORT_COL_NOPV)
+
+  BUTTON bu_or_facvars			_lft	_ls	200	.,	///
+	onpush("program or_bu_facvars_open")				///
+	label(resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS)
+	
+  BUTTON bu_or_fmtcoef			_lft2	@	200	.,	///
+	onpush("program or_bu_fmtcoef_open")				///
+	label(resource LBL_SET_TABLE_FORMATS) 
+
+  // -rr- options
+  COMBOBOX sp_rr_level			_lft	holdy	_spwd	.,	///
+	dropdown							///
+	default(c(level))						///
+	contents(levels)						///
+	option(level)							///
+	label(resource LBL_TX_LEVEL)
+  TEXT tx_rr_level			_spsep	@	100	.,	///
+	label(resource LBL_TX_LEVEL)
+
+  CHECKBOX ck_rr_nolegend		_lft	_ls	_iwd	.,	///
+	option(nolegend)						///
+	label(resource LBL_SUP_TABLE_LEGEND)
+
+  RADIO rb_rr_report_cols_dflt		_lft	_ls	_iwd	.,first	///
+	label(resource _REPORT_COLUMNS_RB_REPORT_COL_DFLT)
+  RADIO rb_rr_report_cols_noci		@	_ss	@	.,	///
+	option(noci)							///
+	label(resource LBL_SUPPRESS_CONFIDENCE_INTERVALS)
+  RADIO rb_rr_report_cols_nopv		@	_ss	@	.,last	///
+	option(nopvalues)						///
+	label(resource _REPORT_COLUMNS_RB_REPORT_COL_NOPV)
+
+  BUTTON bu_rr_facvars			_lft	_ls	200	.,	///
+	onpush("program rr_bu_facvars_open")				///
+	label(resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS)
+	
+  BUTTON bu_rr_fmtcoef			_lft2	@	200	.,	///
+	onpush("program rr_bu_fmtcoef_open")				///
+	label(resource LBL_SET_TABLE_FORMATS) 
+
+  // -irr- options
+  COMBOBOX sp_irr_level			_lft	holdy	_spwd	.,	///
+	dropdown							///
+	default(c(level))						///
+	contents(levels)						///
+	option(level)							///
+	label(resource LBL_TX_LEVEL)
+  TEXT tx_irr_level			_spsep	@	100	.,	///
+	label(resource LBL_TX_LEVEL)
+
+  CHECKBOX ck_irr_nolegend		_lft	_ls	_iwd	.,	///
+	option(nolegend)						///
+	label(resource LBL_SUP_TABLE_LEGEND)
+
+  RADIO rb_irr_report_cols_dflt		_lft	_ls	_iwd	.,first	///
+	label(resource _REPORT_COLUMNS_RB_REPORT_COL_DFLT)
+  RADIO rb_irr_report_cols_noci		@	_ss	@	.,	///
+	option(noci)							///
+	label(resource LBL_SUPPRESS_CONFIDENCE_INTERVALS)
+  RADIO rb_irr_report_cols_nopv		@	_ss	@	.,last	///
+	option(nopvalues)						///
+	label(resource _REPORT_COLUMNS_RB_REPORT_COL_NOPV)
+
+  BUTTON bu_irr_facvars			_lft	_ls	200	.,	///
+	onpush("program irr_bu_facvars_open")				///
+	label(resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS)
+	
+  BUTTON bu_irr_fmtcoef			_lft2	@	200	.,	///
+	onpush("program irr_bu_fmtcoef_open")				///
+	label(resource LBL_SET_TABLE_FORMATS) 
+  
+  // -effectplot- option
+  INCLUDE estat_effectplot
+
+  // -summarize- and -vce- options
+  INCLUDE estat_sum
+  INCLUDE estat_vce
+END
+
+INCLUDE estat_proportion_pr 
+INCLUDE estat_cde_pr
+INCLUDE estat_effectplot_pr
+INCLUDE estat_sum_pr
+INCLUDE estat_vce_pr
+
+LIST main_subcommand_contents
+BEGIN
+END
+
+LIST main_subcommand_values
+BEGIN
+END
+
+PROGRAM main_subcommand_changed
+BEGIN
+	call script main_hide_all
+	if main.lb_subcmd.iseq("proportion") {
+		call script sel_proportion 
+	}
+	if main.lb_subcmd.iseq("cde") {
+		call script sel_cde 
+	}
+	if main.lb_subcmd.iseq("or") {
+		call script sel_or
+	}
+	if main.lb_subcmd.iseq("rr") {
+		call script sel_rr
+	}
+	if main.lb_subcmd.iseq("irr") {
+		call script sel_irr
+	}
+	if main.lb_subcmd.iseq("effectsplot") {
+		call script sel_effectplot
+	}
+	if main.lb_subcmd.iseq("summarize") {
+		call script sel_summarize
+	}
+	if main.lb_subcmd.iseq("vce") {
+		call script sel_vce
+	}
+END
+
+SCRIPT main_hide_all
+BEGIN
+	script main_proportion_off
+	script main_cde_off
+	script main_or_hide
+	script main_rr_hide
+	script main_irr_hide
+	script main_effectplot_off
+	script main_summ_off
+	program vce_off
+END
+
+SCRIPT sel_proportion 
+BEGIN 
+	program main_proportion_on
+END 
+
+SCRIPT sel_cde 
+BEGIN
+	program main_cde_on 
+END 
+
+SCRIPT main_or_hide
+BEGIN
+	main.sp_or_level.hide
+	main.tx_or_level.hide
+	main.ck_or_nolegend.hide
+	main.rb_or_report_cols_dflt.hide
+	main.rb_or_report_cols_noci.hide
+	main.rb_or_report_cols_nopv.hide
+	main.bu_or_facvars.hide
+	main.bu_or_fmtcoef.hide
+END 
+
+SCRIPT sel_or
+BEGIN
+	main.sp_or_level.show
+	main.tx_or_level.show
+	main.ck_or_nolegend.show
+	main.rb_or_report_cols_dflt.show
+	main.rb_or_report_cols_noci.show
+	main.rb_or_report_cols_nopv.show
+	main.bu_or_facvars.show
+	main.bu_or_fmtcoef.show
+END
+
+PROGRAM or_bu_facvars_open
+BEGIN
+	call create CHILD factor_vars_rpt_estat AS or_bu_facvars,	///
+		message("layout2")
+	call or_bu_facvars.setExitString or_bu_facvarsResults
+	call or_bu_facvars.setExitAction "program or_bu_facvars_ckResults"
+	call or_bu_facvars.settitle resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS
+END
+
+PROGRAM or_bu_facvars_ckResults
+BEGIN
+	if or_bu_facvarsResults {
+		call main.bu_or_facvars.modified_on
+	}
+	else {
+		call main.bu_or_facvars.modified_off
+	}
+END
+
+PROGRAM or_bu_fmtcoef_open
+BEGIN
+	call create CHILD fmt_coef_table_reporting AS or_bu_fmtcoef
+	call or_bu_fmtcoef.setExitString or_bu_fmtcoefResults
+	call or_bu_fmtcoef.setExitAction "program or_bu_fmtcoef_ckResults"
+END
+
+PROGRAM or_bu_fmtcoef_ckResults
+BEGIN
+	if or_bu_fmtcoefResults {
+		call main.bu_or_fmtcoef.modified_on
+	}
+	else {
+		call main.bu_or_fmtcoef.modified_off
+	}
+END
+
+PROGRAM or_output
+BEGIN
+	optionarg main.sp_or_level
+	option main.ck_or_nolegend
+	option main.rb_or_report_cols_noci
+	option main.rb_or_report_cols_nopv
+	if or_bu_facvarsResults {
+		put " " or_bu_facvarsResults
+	}
+	if or_bu_fmtcoefResults  {
+		put " " or_bu_fmtcoefResults
+	}
+END
+
+SCRIPT main_rr_hide
+BEGIN
+	main.sp_rr_level.hide
+	main.tx_rr_level.hide
+	main.ck_rr_nolegend.hide
+	main.rb_rr_report_cols_dflt.hide
+	main.rb_rr_report_cols_noci.hide
+	main.rb_rr_report_cols_nopv.hide
+	main.bu_rr_facvars.hide
+	main.bu_rr_fmtcoef.hide
+END 
+
+SCRIPT sel_rr
+BEGIN
+	main.sp_rr_level.show
+	main.tx_rr_level.show
+	main.ck_rr_nolegend.show
+	main.rb_rr_report_cols_dflt.show
+	main.rb_rr_report_cols_noci.show
+	main.rb_rr_report_cols_nopv.show
+	main.bu_rr_facvars.show
+	main.bu_rr_fmtcoef.show
+END 
+
+PROGRAM rr_bu_facvars_open
+BEGIN
+	call create CHILD factor_vars_rpt_estat AS rr_bu_facvars,	///
+		message("layout2")
+	call rr_bu_facvars.setExitString rr_bu_facvarsResults
+	call rr_bu_facvars.setExitAction "program rr_bu_facvars_ckResults"
+	call rr_bu_facvars.settitle resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS
+END
+
+PROGRAM rr_bu_facvars_ckResults
+BEGIN
+	if rr_bu_facvarsResults {
+		call main.bu_rr_facvars.modified_on
+	}
+	else {
+		call main.bu_rr_facvars.modified_off
+	}
+END
+
+PROGRAM rr_bu_fmtcoef_open
+BEGIN
+	call create CHILD fmt_coef_table_reporting AS rr_bu_fmtcoef
+	call rr_bu_fmtcoef.setExitString rr_bu_fmtcoefResults
+	call rr_bu_fmtcoef.setExitAction "program rr_bu_fmtcoef_ckResults"
+END
+
+PROGRAM rr_bu_fmtcoef_ckResults
+BEGIN
+	if rr_bu_fmtcoefResults {
+		call main.bu_rr_fmtcoef.modified_on
+	}
+	else {
+		call main.bu_rr_fmtcoef.modified_off
+	}
+END
+
+PROGRAM rr_output
+BEGIN
+	optionarg main.sp_rr_level
+	option main.ck_rr_nolegend
+	option main.rb_rr_report_cols_noci
+	option main.rb_rr_report_cols_nopv
+	if rr_bu_facvarsResults {
+		put " " rr_bu_facvarsResults
+	}
+	if rr_bu_fmtcoefResults  {
+		put " " rr_bu_fmtcoefResults
+	}
+END
+
+SCRIPT main_irr_hide
+BEGIN
+	main.sp_irr_level.hide
+	main.tx_irr_level.hide
+	main.ck_irr_nolegend.hide
+	main.rb_irr_report_cols_dflt.hide
+	main.rb_irr_report_cols_noci.hide
+	main.rb_irr_report_cols_nopv.hide
+	main.bu_irr_facvars.hide
+	main.bu_irr_fmtcoef.hide
+END 
+
+SCRIPT sel_irr
+BEGIN
+	main.sp_irr_level.show
+	main.tx_irr_level.show
+	main.ck_irr_nolegend.show
+	main.rb_irr_report_cols_dflt.show
+	main.rb_irr_report_cols_noci.show
+	main.rb_irr_report_cols_nopv.show
+	main.bu_irr_facvars.show
+	main.bu_irr_fmtcoef.show
+END 
+
+PROGRAM irr_bu_facvars_open
+BEGIN
+	call create CHILD factor_vars_rpt_estat AS irr_bu_facvars,	///
+		message("layout2")
+	call irr_bu_facvars.setExitString irr_bu_facvarsResults
+	call irr_bu_facvars.setExitAction "program irr_bu_facvars_ckResults"
+	call irr_bu_facvars.settitle resource LBL_FACTOR_VARIABLE_DISPLAY_OPTIONS
+END
+
+PROGRAM irr_bu_facvars_ckResults
+BEGIN
+	if irr_bu_facvarsResults {
+		call main.bu_irr_facvars.modified_on
+	}
+	else {
+		call main.bu_irr_facvars.modified_off
+	}
+END
+
+PROGRAM irr_bu_fmtcoef_open
+BEGIN
+	call create CHILD fmt_coef_table_reporting AS irr_bu_fmtcoef
+	call irr_bu_fmtcoef.setExitString irr_bu_fmtcoefResults
+	call irr_bu_fmtcoef.setExitAction "program irr_bu_fmtcoef_ckResults"
+END
+
+PROGRAM irr_bu_fmtcoef_ckResults
+BEGIN
+	if irr_bu_fmtcoefResults {
+		call main.bu_irr_fmtcoef.modified_on
+	}
+	else {
+		call main.bu_irr_fmtcoef.modified_off
+	}
+END
+
+PROGRAM irr_output
+BEGIN
+	optionarg main.sp_irr_level
+	option main.ck_irr_nolegend
+	option main.rb_irr_report_cols_noci
+	option main.rb_irr_report_cols_nopv
+	if irr_bu_facvarsResults {
+		put " " irr_bu_facvarsResults
+	}
+	if irr_bu_fmtcoefResults  {
+		put " " irr_bu_fmtcoefResults
+	}
+
+END
+
+SCRIPT sel_effectplot 
+BEGIN
+	program main_effectplot_on 
+END 
+
+SCRIPT sel_summarize
+BEGIN
+	program main_summ_on
+END
+
+SCRIPT sel_vce
+BEGIN
+	program vce_on
+END
+
+PROGRAM command
+BEGIN
+	put "estat "
+	put main.lb_subcmd
+	beginoptions
+		//proportion options 
+		put " " /program proportion_opts_output
+		//cde options
+		if main.lb_subcmd.iseq("or") {
+			put " " /program or_output 
+		}
+		if main.lb_subcmd.iseq("rr") {
+			put " " /program rr_output 
+		}
+		if main.lb_subcmd.iseq("irr") {
+			put " " /program irr_output 
+		}
+
+		put " " /program cde_opts_output 
+		//effectplot options 
+		put " " /program effectplot_opts_output
+
+		// Summarize and VCE options
+		put " " /program summarize_opts_output
+		put " " /program vce_output
+	endoptions
+END

@@ -1,0 +1,304 @@
+/*
+	predict (after mediate)
+
+*!  VERSION 1.0.2  03mar2023
+
+*/
+
+VERSION 18.0
+
+INCLUDE _std_medium
+DEFINE _dlght 365
+INCLUDE header
+HELP hlp1, view("help mediate postestimation")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	setscale_hadj resource MEDIATE_P_DLG_HSCALE
+
+	create DOUBLE has_PearlTerm 
+	has_PearlTerm.setvalue e(npearl)
+
+	create STRING cmdstring 
+	cmdstring.setvalue e(cmdline)
+	program main_pearl_onoff
+END
+
+PROGRAM POSTINIT_PROGRAM
+BEGIN
+	call script _p_gentype_multiple
+	call script _p_gentype_setMedium
+END
+
+PROGRAM efflevels_init 
+BEGIN
+	call create STRING efflevelstr
+	call efflevelstr.setvalue e(tlevels)
+	call create STRING effcontrolstr
+	call effcontrolstr.setvalue e(control)
+
+	call create ARRAY efflevels_templist
+	call efflevels_templist.Arrdropall
+	
+	call efflevelstr.tokenizeOnStr efflevels_templist " "
+
+	call create ARRAY efflevels_list 
+	call efflevels_list.Arrdropall
+
+	call create DOUBLE i 
+	call create DOUBLE missing
+	call missing.setvalue .
+
+	call create DOUBLE k_levels 
+	call k_levels.setvalue e(k_levels)
+	if k_levels.iseq(missing)  {
+		call k_levels.setvalue 0
+	}
+	call i.setvalue 2 
+	call create STRING tmp
+
+	while (i.isle(k_levels)) {
+		call i.withvalue tmp.setvalue class efflevels_templist[@]
+		call tmp.withvalue efflevels_list.Arrpush "@"
+		call i.increment
+	}
+
+	call main.cb_eff_level.setcontentslist efflevels_list
+	call main.cb_eff_level.repopulate 
+END 
+
+DIALOG main, tabtitle(resource LBL_TAB_MAIN) label(resource PREDICT_DLG_TITLE)
+BEGIN
+  GROUPBOX gb_stat			_lft	_top	_iwd	_ht1h,	///
+	label(resource LBL_STATISTICS)
+  RADIO rb_p_eff			_indent	_ss 	_inwd	.,	///
+	first								///
+	onclickon(script main_rb_p_eff_on)				///
+	label(resource LBL_TREATMENT_EFFECTS)
+  RADIO rb_p_po				_ilft3_2 @	.	.,	///
+	onclickon(script main_rb_p_po_on)				///
+	option(cmean)							///
+	label(resource LBL_CONDITIONAL_MEAN)
+  RADIO rb_p_fitted			_ilft3_3 @	.	.,	///
+	last								///
+	onclickon(script main_rb_p_fitted_on)				///
+	label(resource LBL_FITTED_VALUES)
+
+  DEFINE _top 60
+  
+
+  TEXT  tx_var        			_lft     _top    _vlwd	.,      ///
+        label(resource LBL_NEW_VARIABLE_NAME)
+  EDIT  ed_var           		@	_ss	_vnwd	.,      ///
+	onchange(program check_ed_var)					///
+        label(resource LBL_NEW_VARIABLE_NAME)
+
+  DEFINE _x  _vlsep
+  DEFINE _y  _top
+  DEFINE _cx _vnwd
+  INCLUDE _type
+
+  DEFINE _top 10 
+
+  GROUPBOX gb_eff_opt			_lft	_ls	_iwd	_ht9h,	///
+        label(resource LBL_PRODUCE)
+  DEFINE holdy @y  
+  RADIO rb_eff_ite			_indent	_ss	_inwd	.,	///
+	first								///
+	option(ite)							///
+	label(resource LBL_INDIRECT_TE)
+  RADIO rb_eff_dte    			@       _ss     @       .,	///
+	option(dte)							///
+	label(resource LBL_DIRECT_TE)
+  RADIO rb_eff_te			@	_ss	@	.,	///
+	option(te)							///
+	label(resource LBL_TOTAL_TE)
+  RADIO rb_eff_itec			@	_ss	@	.,	///
+	option(itec)							///
+	label(resource LBL_INDIRECT_TE_WRT_CONTROLS)	
+  RADIO rb_eff_dtet 			@	_ss	@	.,	///
+	last								///
+	option(dtet)							///
+	label(resource LBL_DIRECT_TE_WRT_TREATED)
+  TEXT tx_eff_level   			_lft	_xls	_iwd	.,	///
+	label(resource TEFFECTS_P_TREATMENT_LEVEL)       
+  COMBOBOX cb_eff_level			@	_ss 	_irj150	.,	///
+	option(tlevel)							///
+	contents(cb_eff_level_list)					///
+	dropdownlist							///
+	label(resource TEFFECTS_P_TREATMENT_LEVEL)
+  GROUPBOX gb_fitted_opt		_lft	holdy	_iwd	_ht7h,	///
+	label(resource LBL_PRODUCE)
+  RADIO rb_fitted_xb			_indent	_ss	_inwd	.,	///
+	first								///
+	option(xb)							///
+	label(resource STTEFFECTS_P_LINEAR_PRED_FOR_OUTCOME_MODEL)
+  RADIO rb_fitted_medxb			@	_ss	@	.,	///
+	option(medxb)							///
+	label(resource LBL_LINEAR_PRED_FOR_MEDIATOR_MODEL)
+  RADIO rb_fitted_mu			@	_ss	@	.,	///
+	option(mu)							///
+	label(resource LBL_EXPECTED_VALS_FOR_OUTCOME_MODEL)		
+  RADIO rb_fitted_medmu			@	_ss	@	.,	///
+	last 								///
+	option(medmu)							///
+	label(resource LBL_EXPECTED_VALS_FOR_MEDIATOR_MODEL)
+  TEXT tx_po_level			_lft	holdy	_iwd	.,	///
+	label(resource LBL_TREATMENT_LVLS_SEP_BY_COMMA, colon)
+  EDIT ed_po_level			@	_ss	_irj150	.,	///
+	option(polevels)						///
+	label(resource TEFFECTS_P_TREATMENT_LEVEL)
+END
+
+LIST cb_eff_level_list
+BEGIN
+END 
+
+PROGRAM main_pearl_onoff 
+BEGIN 
+	if has_PearlTerm {
+		call script main_pearl_on
+	}
+	else {
+		call script main_pearl_off
+	}
+END 
+
+SCRIPT main_pearl_on
+BEGIN
+	main.rb_eff_ite.setoption nie
+	main.rb_eff_ite.setlabel resource LBL_NATURAL_INDIRECT_EFFECT
+	main.rb_eff_dte.setoption nde
+	main.rb_eff_dte.setlabel resource LBL_NATURAL_DIRECT_EFFECT
+	main.rb_eff_te.setoption te 
+	main.rb_eff_te.setlabel resource LBL_MARGINAL_TOTAL__EFFECT
+	main.rb_eff_itec.setoption pnie 
+	main.rb_eff_itec.setlabel resource LBL_PURE_NATURAL_INDIRECT_EFFECT
+	main.rb_eff_dtet.setoption tnde 
+	main.rb_eff_dtet.setlabel resource LBL_TOTAL_NATURAL_INDIRECT_EFFECT
+END 
+
+SCRIPT	main_pearl_off 
+BEGIN
+	main.rb_eff_ite.setoption ite
+	main.rb_eff_ite.setlabel resource LBL_INDIRECT_TE
+	main.rb_eff_dte.setoption dte 
+	main.rb_eff_dte.setlabel resource LBL_DIRECT_TE
+	main.rb_eff_te.setoption tte 
+	main.rb_eff_te.setlabel resource LBL_TOTAL_TE
+	main.rb_eff_itec.setoption itec
+	main.rb_eff_itec.setlabel resource LBL_INDIRECT_TE_WRT_CONTROLS
+	main.rb_eff_dtet.setoption dtet 
+	main.rb_eff_dtet.setlabel resource LBL_DIRECT_TE_WRT_TREATED
+END 
+
+
+SCRIPT main_rb_p_eff_on
+BEGIN
+	main.gb_eff_opt.show
+	main.rb_eff_ite.show
+	main.rb_eff_dte.show 
+	main.rb_eff_te.show 
+	main.rb_eff_itec.show 
+	main.rb_eff_dtet.show 
+	main.tx_eff_level.show 
+	main.cb_eff_level.show 	
+	script _p_gentype_multiple
+	main.tx_po_level.hide
+	main.ed_po_level.hide 
+	main.gb_fitted_opt.hide 
+	main.rb_fitted_xb.hide 
+	main.rb_fitted_medxb.hide 
+	main.rb_fitted_mu.hide 
+	main.rb_fitted_medmu.hide 
+END 
+
+SCRIPT main_rb_p_po_on
+BEGIN
+	main.gb_eff_opt.hide
+	main.rb_eff_ite.hide
+	main.rb_eff_dte.hide 
+	main.rb_eff_te.hide 
+	main.rb_eff_itec.hide 
+	main.rb_eff_dtet.hide 
+	main.tx_eff_level.hide 
+	main.cb_eff_level.hide
+	main.tx_po_level.show
+	main.ed_po_level.show
+	main.gb_fitted_opt.hide 
+	main.rb_fitted_xb.hide 
+	main.rb_fitted_medxb.hide 
+	main.rb_fitted_mu.hide 
+	main.rb_fitted_medmu.hide 
+	script _p_gentype_multiple
+END 
+
+SCRIPT main_rb_p_fitted_on
+BEGIN
+	main.gb_eff_opt.hide
+	main.rb_eff_ite.hide
+	main.rb_eff_dte.hide 
+	main.rb_eff_te.hide 
+	main.rb_eff_itec.hide 
+	main.rb_eff_dtet.hide 
+	main.tx_eff_level.hide 
+	main.cb_eff_level.hide
+	main.tx_po_level.hide
+	main.ed_po_level.hide
+	main.gb_fitted_opt.show 
+	main.rb_fitted_xb.show 
+	main.rb_fitted_medxb.show  
+	main.rb_fitted_mu.show 
+	main.rb_fitted_medmu.show  
+	script _p_gentype_single
+END 
+
+PROGRAM check_ed_var
+BEGIN
+        call create ARRAY tmpArray
+        call create STRING tmpStr
+        call create DOUBLE tmpSize
+        call main.ed_var.withvalue tmpStr.setvalue @
+        call tmpStr.tokenizeOnStr tmpArray " "
+        call tmpSize.storeClsArraySize tmpArray
+	if tmpStr.isneq("") {
+		if tmpSize.isge(2) {
+			call main.cb_eff_level.disable
+			call main.tx_eff_level.disable
+		}
+		else {
+			if tmpStr.endswith("*") {
+				call main.cb_eff_level.disable
+				call main.tx_eff_level.disable
+			}
+			else {
+				call main.cb_eff_level.enable
+				call main.tx_eff_level.enable 
+			}
+		}
+	}
+	else {
+		call main.cb_eff_level.enable 
+		call main.tx_eff_level.enable
+	}
+END
+
+INCLUDE _p_gentype_sc
+INCLUDE ifin
+INCLUDE _type_list_fd
+
+PROGRAM command
+BEGIN
+	put "predict "
+	put " " /program _p_gentype_output
+	put " " /program ifin_output 
+	beginoptions 
+		option radio(main rb_eff_ite rb_eff_dte rb_eff_te rb_eff_itec rb_eff_dtet) 
+		optionarg main.cb_eff_level
+		option main.rb_p_po
+		optionarg main.ed_po_level
+		option radio(main rb_fitted_xb rb_fitted_medxb rb_fitted_mu rb_fitted_medmu)
+	endoptions
+
+END
